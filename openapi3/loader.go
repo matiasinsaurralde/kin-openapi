@@ -452,10 +452,12 @@ func (loader *Loader) resolveComponent(doc *T, ref string, path *url.URL, resolv
 			// Special case due to multijson
 			case *SchemaRef:
 				if pathPart == "additionalProperties" {
-					if ap := c.Value.AdditionalProperties.Has; ap != nil {
-						cursor = *ap
-					} else {
-						cursor = c.Value.AdditionalProperties.Schema
+					if s := c.Value; s != nil {
+						if ap := s.AdditionalProperties.Has; ap != nil {
+							cursor = *ap
+						} else {
+							cursor = s.AdditionalProperties.Schema
+						}
 					}
 					attempted = true
 				}
