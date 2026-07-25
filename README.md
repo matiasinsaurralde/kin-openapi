@@ -326,6 +326,10 @@ for _, path := range doc.Paths.InMatchingOrder() {
 
 ## CHANGELOG: Sub-v1 breaking API changes
 
+### v0.145.0
+* `(*openapi3.PathItem).GetOperation(string)` now returns `nil` on unhandled HTTP methods instead of panic-ing.
+* `(*openapi2.PathItem).GetOperation(string)` now returns `nil` on unhandled HTTP methods instead of panic-ing.
+
 ### v0.144.0
 * `openapi3filter.ValidationHandler.AuthenticationFunc` no longer defaults to `NoopAuthenticationFunc`. Users now have to explicitly set the field and implement their own `AuthenticationFunc` or use the noop impl should they wish to.
 
