@@ -574,6 +574,10 @@ func (d *urlValuesDecoder) DecodeArray(param string, sm *openapi3.SerializationM
 // Every item is parsed as a primitive value.
 // The function returns an error when an error happened while parse array's items.
 func (d *urlValuesDecoder) parseArray(raw []string, schemaRef *openapi3.SchemaRef) ([]any, error) {
+	if schemaRef.Value.Items == nil || schemaRef.Value.Items.Value == nil {
+		return nil, errors.New("array items schema is required for decoding")
+	}
+
 	var value []any
 
 	for i, v := range raw {
@@ -920,15 +924,27 @@ func deepGet(m map[string]any, keys ...string) (any, bool) {
 	return m, true
 }
 
-func deepSet(m map[string]any, keys []string, value any) {
+func deepSet(m map[string]any, keys []string, value any) error {
 	for i := 0; i < len(keys)-1; i++ {
 		key := keys[i]
 		if _, ok := m[key]; !ok {
 			m[key] = make(map[string]any)
 		}
-		m = m[key].(map[string]any)
+		next, ok := m[key].(map[string]any)
+		if !ok {
+			// The same key is used both as a scalar leaf and as an object
+			// path (e.g. deepObject "filter[a]=v" and "filter[a][b]=w"). Return
+			// a clean error instead of panicking on the type assertion.
+			return &ParseError{
+				path:   pathFromKeys(keys[:i+1]),
+				Kind:   KindInvalidFormat,
+				Reason: "conflicting types for property",
+			}
+		}
+		m = next
 	}
 	m[keys[len(keys)-1]] = value
+	return nil
 }
 
 // makeObject returns an object that contains properties from props.
@@ -942,7 +958,9 @@ func makeObject(props map[string]string, schema *openapi3.SchemaRef) (map[string
 			p := pathFromKeys(keys)
 			return nil, &ParseError{path: p, Kind: KindInvalidFormat, Reason: "array items must be set with indexes"}
 		}
-		deepSet(mobj, keys, value)
+		if err := deepSet(mobj, keys, value); err != nil {
+			return nil, err
+		}
 	}
 	r, err := buildResObj(mobj, nil, "", schema)
 	if err != nil {
@@ -1010,6 +1028,9 @@ func buildResObj(params map[string]any, parentKeys []string, key string, schema 
 
 	switch {
 	case schema.Value.Type.Is("array"):
+		if schema.Value.Items == nil || schema.Value.Items.Value == nil {
+			return nil, &ParseError{path: pathFromKeys(mapKeys), Kind: KindInvalidFormat, Reason: "array items schema is required for decoding"}
+		}
 		paramArr, ok := deepGet(params, mapKeys...)
 		if !ok {
 			return nil, nil
