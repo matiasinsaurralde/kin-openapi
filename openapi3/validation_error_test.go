@@ -382,8 +382,8 @@ paths: {}
 	require.Equal(t, "openapi", rfe.Field)
 	require.NotNil(t, rfe.Origin, "doc-root fields now carry the document's Origin")
 	require.Same(t, doc.Origin, rfe.Origin, "the error carries T.Origin")
-	require.Greater(t, rfe.Origin.Fields["openapi"].Line, 0,
-		`Origin.Fields["openapi"] locates the openapi: line`)
+	require.Greater(t, rfe.Origin.Fields.Get("openapi").Line, 0,
+		`Origin.Fields.Get("openapi") locates the openapi: line`)
 }
 
 // SchemaValueError clusters "<schema field>'s example/default value

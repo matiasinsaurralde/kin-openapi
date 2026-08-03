@@ -991,6 +991,38 @@ func (e *ExtraSiblingFieldsError) Code() string
 
 func (e *ExtraSiblingFieldsError) Error() string
 
+type FieldLocations []Location
+    FieldLocations holds the locations of a collection's scalar fields, in the
+    order they appear in the document.
+
+    It is a slice rather than a map[string]Location because a collection carries
+    only a handful of fields, while a Go map allocates a whole bucket per
+    collection whatever it holds. On a large document that overhead dominated
+    the retained size of a parsed spec. Each Location already carries its Name,
+    so the lookup key costs nothing extra here.
+
+func (f FieldLocations) Get(name string) Location
+    Get returns the location of the named field, or the zero Location when the
+    field has none. Use Lookup to tell an absent field from a zero location.
+
+func (f FieldLocations) Lookup(name string) (Location, bool)
+    Lookup returns the location of the named field and whether it was found.
+    The scan is linear: collections have few fields, and a linear scan over a
+    contiguous slice beats a map lookup at these sizes.
+
+    Deliberately a hand-written loop rather than slices.IndexFunc: the closure
+    does not inline, so IndexFunc pays a call per element. Measured on 3/6/12
+    fields it is 5-100% slower on a hit and 2-3x slower on a miss, and misses
+    are the common case here (most fields carry no recorded location).
+
+func (f FieldLocations) MarshalJSON() ([]byte, error)
+    MarshalJSON keeps the serialized shape a name-keyed object, as it was when
+    this was a map, so the change is invisible to anything reading the output.
+
+func (f *FieldLocations) UnmarshalJSON(data []byte) error
+    UnmarshalJSON reads the name-keyed object written by MarshalJSON. Entries
+    are sorted by name, since a JSON object carries no order to restore.
+
 type FieldVersionMismatchError struct {
 	// Field is the field name flagged (e.g. "summary", "identifier",
 	// "$defs", "prefixItems", "contains", ...).
@@ -1872,13 +1904,22 @@ func (e *OperationValidationError) Unwrap() error
 
 type Origin struct {
 	Key       *Location             `json:"key,omitempty" yaml:"key,omitempty"`
-	Fields    map[string]Location   `json:"fields,omitempty" yaml:"fields,omitempty"`
+	Fields    FieldLocations        `json:"fields,omitempty" yaml:"fields,omitempty"`
 	Sequences map[string][]Location `json:"sequences,omitempty" yaml:"sequences,omitempty"`
 }
-    Origin contains the origin of a collection. Key is the location of the
-    collection itself. Fields is a map of the location of each scalar field
+    Origin contains the origin of a collection. Key is the location of
+    the collection itself. Fields holds the location of each scalar field
     in the collection. Sequences is a map of the location of each item in
     sequence-valued fields.
+
+    Sequences stays a map although Fields is a slice, which is deliberate.
+    FieldLocations drops the map because Location.Name already carries the key,
+    so the map was storing information the value repeated. Here Location.Name
+    holds the *item's* value (an enum member, a required property) while the key
+    is the *field's* name ("enum", "required", "tags"), so a slice would need a
+    wrapper type invented to hold it. The memory argument is also much weaker:
+    only a collection with a sequence-valued field allocates one at all,
+    which measured at 5% of collections on a large spec, and a nil map is free.
 
 type Parameter struct {
 	Extensions map[string]any `json:"-" yaml:"-"`

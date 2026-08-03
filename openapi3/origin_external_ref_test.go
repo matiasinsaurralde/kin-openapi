@@ -35,14 +35,14 @@ func TestOrigin_ExternalRefToArbitraryTopLevelKey(t *testing.T) {
 		Name:    "User",
 		EndLine: 7, EndColumn: 19,
 	}, *user.Origin.Key, "the key origin spans the whole User block in arbitrary_key_schemas.yaml")
-	require.Equal(t, 2, user.Origin.Fields["type"].Line, "field origins are attached too")
+	require.Equal(t, 2, user.Origin.Fields.Get("type").Line, "field origins are attached too")
 
 	// the subtree gets origins as well, with the same file
 	id := user.Properties["id"].Value
 	require.NotNil(t, id.Origin)
 	require.Equal(t, user.Origin.Key.File, id.Origin.Key.File)
 	require.Equal(t, 4, id.Origin.Key.Line, "the id property's own line")
-	require.Equal(t, 5, id.Origin.Fields["type"].Line)
+	require.Equal(t, 5, id.Origin.Fields.Get("type").Line)
 }
 
 // Re-attaching origins reuses the origin tree retained at load time: resolving
@@ -101,6 +101,6 @@ User:
 	require.Equal(t, "User", user.Origin.Key.Name)
 	require.Equal(t, 14, user.Origin.Key.Line, "the User: line in the document above")
 	require.Equal(t, 17, user.Origin.Key.EndLine, "the block's last line")
-	require.Equal(t, 15, user.Origin.Fields["type"].Line)
+	require.Equal(t, 15, user.Origin.Fields.Get("type").Line)
 	require.Empty(t, user.Origin.Key.File, "a document loaded from data has no file")
 }
