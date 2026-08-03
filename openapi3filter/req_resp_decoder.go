@@ -270,6 +270,10 @@ func decodeStyledParameter(param *openapi3.Parameter, input *RequestValidationIn
 func decodeValue(dec valueDecoder, param string, sm *openapi3.SerializationMethod, schema *openapi3.SchemaRef, required bool) (any, bool, error) {
 	var found bool
 
+	if schema == nil {
+		return nil, false, nil
+	}
+
 	if len(schema.Value.AllOf) > 0 {
 		var value any
 		var err error
